@@ -1,4 +1,4 @@
--- | Project MONTADOR DE SPWN Structures - UI Fiel à Referência (Com Proteção de Código) |
+-- | Assembly automation tool | SPWN PROJECT BETA PROP - UI Atualizada |
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -27,14 +27,19 @@ local function Create(className, parent, properties, cornerRadius, strokeProps)
     return obj
 end
 
--- Sistema de Arrasto
+-- Sistema de Arrasto Robusto
 local function MakeDraggable(guiObj)
-    local dragging, dragInput, startPos, dragStart
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+
     guiObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = guiObj.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -42,15 +47,22 @@ local function MakeDraggable(guiObj)
             end)
         end
     end)
+
     guiObj.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            guiObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            guiObj.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
@@ -79,6 +91,7 @@ local MainFrame = Create("Frame", ScreenGui, {
     Size = UDim2.new(0, 500, 0, 330),
     Position = UDim2.new(0.5, -250, 0.5, -165),
     BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    Active = true,
     Visible = true
 }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5 })
 
@@ -96,17 +109,46 @@ Create("ImageLabel", MainFrame, {
 -- Título do Cabeçalho
 Create("TextLabel", MainFrame, {
     Name = "HeaderTitle",
-    Size = UDim2.new(0, 400, 0, 24),
+    Size = UDim2.new(0, 380, 0, 24),
     Position = UDim2.new(0, 40, 0, 10),
     BackgroundTransparency = 1,
-    Text = "MONTADOR E Data Base Collector Prop V2 Organizer",
+    Text = "Assembly automation tool | SPWN PROJECT BETA PROP",
     TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = FONTE_PROJETO,
     TextSize = 10,
     TextXAlignment = Enum.TextXAlignment.Left
 })
 
--- Botão X de Fechar Puro
+-- BOTÃO: Bloco de Notas (Parte Superior Direita)
+local NotebookButton = Create("ImageButton", MainFrame, {
+    Name = "NotebookButton",
+    Size = UDim2.new(0, 24, 0, 24),
+    Position = UDim2.new(1, -66, 0, 10),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://76204370315940"
+})
+
+NotebookButton.MouseButton1Click:Connect(function()
+    task.spawn(function()
+        local url = "https://raw.githubusercontent.com/YuMAID369/Bloco-de-Notas-SpawnCUB/refs/heads/main/Notebook%20Notes"
+        local success, scriptContent = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if success and scriptContent then
+            local func, err = loadstring(scriptContent)
+            if func then
+                pcall(func)
+                print("[MONTADOR]: Script do Bloco de Notas carregado com sucesso!")
+            else
+                warn("[MONTADOR - ERRO DE SINTAXE]: " .. tostring(err))
+            end
+        else
+            warn("[MONTADOR - ERRO DE DOWNLOAD]: Não foi possível baixar o script do Bloco de Notas.")
+        end
+    end)
+end)
+
+-- Botão X de Fechar
 local CloseButton = Create("ImageButton", MainFrame, {
     Name = "CloseButton",
     Size = UDim2.new(0, 22, 0, 22),
@@ -127,7 +169,7 @@ Create("Frame", MainFrame, {
     BorderSizePixel = 0
 })
 
--- Painel Central com Rolamento (ScrollingFrame)
+-- Painel Central
 local PanelContainer = Create("ScrollingFrame", MainFrame, {
     Name = "PanelContainer",
     Size = UDim2.new(1, -20, 0, 200),
@@ -164,6 +206,7 @@ local CodeInputBox = Create("TextBox", PanelContainer, {
     TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = FONTE_PROJETO,
     TextSize = 11,
+    TextWrapped = true,
     TextXAlignment = Enum.TextXAlignment.Left,
     TextYAlignment = Enum.TextYAlignment.Top,
     ClearTextOnFocus = false,
@@ -190,10 +233,10 @@ local ButtonContainer = Create("Frame", MainFrame, {
     BackgroundTransparency = 1
 })
 
--- 1. BOTÃO: Transformar em execução
+-- 1. BOTÃO: Transformar em Execução
 local BoxTransform = Create("Frame", ButtonContainer, {
     Name = "BoxTransform",
-    Size = UDim2.new(0.46, -4, 0, 40),
+    Size = UDim2.new(0.44, -4, 0, 40),
     Position = UDim2.new(0, 0, 0, 8),
     BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5 })
@@ -202,28 +245,19 @@ local BtnTransform = Create("TextButton", BoxTransform, {
     Name = "BtnTransform",
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    Text = "Transformar em execução",
+    Text = "Transformar em Execução",
     TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = FONTE_PROJETO,
-    TextSize = 10,
+    TextSize = 11,
     TextXAlignment = Enum.TextXAlignment.Center,
     ZIndex = 2
 })
 
-Create("ImageLabel", BoxTransform, {
-    Name = "IconLupa",
-    Size = UDim2.new(0, 26, 0, 26),
-    Position = UDim2.new(0, 8, 0.5, -13),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://84375270553103",
-    ZIndex = 3
-})
-
--- 2. BOTÃO: Limpar InF
+-- 2. BOTÃO: LIMPAR INF
 local BoxClear = Create("Frame", ButtonContainer, {
     Name = "BoxClear",
-    Size = UDim2.new(0.27, -4, 0, 40),
-    Position = UDim2.new(0.46, 4, 0, 8),
+    Size = UDim2.new(0.28, -4, 0, 40),
+    Position = UDim2.new(0.44, 4, 0, 8),
     BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5 })
 
@@ -231,21 +265,12 @@ local BtnClear = Create("TextButton", BoxClear, {
     Name = "BtnClear",
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    Text = "Limpar InF",
+    Text = "LIMPAR INF",
     TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = FONTE_PROJETO,
-    TextSize = 10,
+    TextSize = 11,
     TextXAlignment = Enum.TextXAlignment.Center,
     ZIndex = 2
-})
-
-Create("ImageLabel", BoxClear, {
-    Name = "IconLixo",
-    Size = UDim2.new(0, 28, 0, 28),
-    Position = UDim2.new(0, 6, 0.5, -14),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://106515804542300",
-    ZIndex = 3
 })
 
 BtnClear.MouseButton1Click:Connect(function()
@@ -257,11 +282,11 @@ BtnClear.MouseButton1Click:Connect(function()
     scriptExecucaoPronto = nil
 end)
 
--- 3. BOTÃO: Executar (LÓGICA DE EXECUTOR)
+-- 3. BOTÃO: EXECUTAR
 local BoxExect = Create("Frame", ButtonContainer, {
     Name = "BoxExect",
-    Size = UDim2.new(0.27, -4, 0, 40),
-    Position = UDim2.new(0.73, 4, 0, 8),
+    Size = UDim2.new(0.28, -4, 0, 40),
+    Position = UDim2.new(0.72, 4, 0, 8),
     BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5 })
 
@@ -269,26 +294,29 @@ local BtnExect = Create("TextButton", BoxExect, {
     Name = "BtnExect",
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    Text = "Executar",
+    Text = "EXECUTAR",
     TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = FONTE_PROJETO,
-    TextSize = 10,
+    TextSize = 11,
     TextXAlignment = Enum.TextXAlignment.Center,
     ZIndex = 2
 })
 
-Create("ImageLabel", BoxExect, {
-    Name = "IconConfirm",
-    Size = UDim2.new(0, 22, 0, 22),
-    Position = UDim2.new(0, 6, 0.5, -11),
-    BackgroundTransparency = 1,
-    Image = "rbxassetid://135311906628500",
-    ZIndex = 3
-})
+--------------------------------------------------------------------------------
+-- LÓGICA DE VALIDAÇÃO E GERAÇÃO DE SCRIPT COMPLETO
+--------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
--- LÓGICA DE CONVERSÃO LINHA POR LINHA (TRANSFORMAR EM EXECUÇÃO)
---------------------------------------------------------------------------------
+local function EhLayoutValido(texto)
+    if not texto or texto:gsub("%s+", "") == "" then
+        return false
+    end
+    local temNomeTabela = texto:find("EstrelaLayout")
+    local temCFrame = texto:find("CFrameToPlayer") or texto:find("CFrame%.new")
+    local temPropId = texto:find("PropId")
+
+    return temNomeTabela or (temCFrame and temPropId)
+end
+
 local function GerarScriptExecucaoCompleto(layoutText)
     local templateScript = [=[
 local Players = game:GetService("Players")
@@ -314,19 +342,18 @@ local seguiAtivo = false
 local loopThread = nil
 local baseMontagemCF = nil
 
--- Rotações independentes em 3 Eixos
 local rotX = 0
 local rotY = 0
 local rotZ = 0
 
-local SEND_INTERVAL = 1 / 60 -- Aumentado para 60Hz para maior fluidez
+local SEND_INTERVAL = 1 / 60
 local lastSend = 0
 local TEMPO_SPAWN_PROP = 0.30
 
-local currentSmoothCF = nil -- CFrame interpolado para movimento suave
+local currentSmoothCF = nil
 
 --------------------------------------------------------------------------------
--- FUNÇÕES AUXILIARES E SISTEMA DE PINTURA MULTI-REMOTE
+-- FUNÇÕES AUXILIARES E SISTEMA DE PINTURA
 --------------------------------------------------------------------------------
 local function getOrganizedProps()
     local rawProps = {}
@@ -437,7 +464,7 @@ local function Create(className, parent, properties, corner, stroke)
 end
 
 --------------------------------------------------------------------------------
--- INTERFACE GRÁFICA
+-- INTERFACE GRÁFICA DO PAINEL EXECUTÁVEL
 --------------------------------------------------------------------------------
 local ScreenGui = Create("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"), { Name = "PropSpawner_CustomUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
 
@@ -642,7 +669,7 @@ BtnResetRot.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------------------------------------
--- DRAG & DROPDOWN UI
+-- DRAG & DROPDOWN UI (Painel Executável)
 --------------------------------------------------------------------------------
 local dragging = false
 local dragInput = nil
@@ -765,7 +792,7 @@ BtnInvokeProps.MouseButton1Click:Connect(ExecutarInvokeProps)
 BtnPositivoInvoke.MouseButton1Click:Connect(ExecutarInvokeProps)
 
 --------------------------------------------------------------------------------
--- MONTAGEM DA ESTRUTURA E MOVIMENTAÇÃO SUAVE (ASSÍNCRONA)
+-- MONTAGEM DA ESTRUTURA E MOVIMENTAÇÃO SUAVE
 --------------------------------------------------------------------------------
 local function ExecutarConstrucao()
     if roboAtivo then
@@ -801,7 +828,6 @@ local function ExecutarConstrucao()
         seguiAtivo = false
         lastSend = 0
 
-        -- Utiliza PostSimulation acoplado com interpolação suave
         loopThread = RunService.PostSimulation:Connect(function(deltaTime)
             if not roboAtivo then
                 if loopThread then loopThread:Disconnect() end
@@ -816,13 +842,11 @@ local function ExecutarConstrucao()
             local targetBaseCF = seguiAtivo and currentHRP and currentHRP.CFrame or baseMontagemCF
 
             if targetBaseCF then
-                -- Interpolação (Lerp) para movimentos mais suaves ao andar
                 if not currentSmoothCF then currentSmoothCF = targetBaseCF end
                 currentSmoothCF = currentSmoothCF:Lerp(targetBaseCF, math.clamp(deltaTime * 25, 0.15, 1))
 
                 local rot3D = CFrame.Angles(math.rad(rotX), math.rad(rotY), math.rad(rotZ))
 
-                -- Atualização assíncrona com task.spawn de todas as peças
                 for i = 1, totalInvocados do
                     local remote = propRemotes[i]
                     local config = EstrelaLayout[i]
@@ -877,50 +901,68 @@ BtnPositivoLight.MouseButton1Click:Connect(AlternarLuz)
     return string.format(templateScript, layoutText)
 end
 
+-- AÇÃO DO BOTÃO "TRANSFORMAR EM EXECUÇÃO"
 BtnTransform.MouseButton1Click:Connect(function()
     local layoutDigitado = CodeInputBox.Text
 
-    if layoutDigitado and layoutDigitado:gsub("%s+", "") ~= "" then
-        -- Garante a estrutura completa de EstrelaLayout
+    if EhLayoutValido(layoutDigitado) then
         if not layoutDigitado:find("EstrelaLayout") then
             layoutDigitado = "local EstrelaLayout = {\n" .. layoutDigitado .. "\n}"
         end
 
-        -- Armazena o código montado na memória interna e esconde da interface
         scriptExecucaoPronto = GerarScriptExecucaoCompleto(layoutDigitado)
         
-        -- Formatação visual do texto de confirmação
-        CodeInputBox.TextSize = 14
+        CodeInputBox.TextSize = 10
+        CodeInputBox.TextWrapped = true
         CodeInputBox.TextXAlignment = Enum.TextXAlignment.Center
         CodeInputBox.TextYAlignment = Enum.TextYAlignment.Center
-        CodeInputBox.TextColor3 = Color3.fromRGB(0, 255, 127)
-        CodeInputBox.Text = "\n\nPROCESSO CONCLUÍDO COM SUCESSO!\n\nO Script de execução foi compilado e armazenado com segurança.\n\nClique no botão 'Executar' para iniciar."
+        CodeInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CodeInputBox.Text = "\nPROCESSO CONCLUÍDO COM SUCESSO!\n\nO Script de execução foi compilado e armazenado com segurança.\n\nClique no botão 'EXECUTAR' para iniciar."
 
-        print("[MONTADOR]: Script compilado e protegido com sucesso!")
+        print("[MONTADOR]: Layout reconhecido, compilado e protegido com sucesso!")
     else
-        warn("[MONTADOR]: Cole primeiro a tabela do layout no painel!")
+        scriptExecucaoPronto = nil
+        
+        -- MENSAGEM DE ERRO
+        CodeInputBox.TextSize = 11
+        CodeInputBox.TextWrapped = true
+        CodeInputBox.TextXAlignment = Enum.TextXAlignment.Center
+        CodeInputBox.TextYAlignment = Enum.TextYAlignment.Center
+        CodeInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CodeInputBox.Text = '\nOps, isso não é um layout para o painel "Transformar em Execução".'
+
+        warn("[MONTADOR]: Tentativa de conversão inválida. O texto fornecido não corresponde a uma tabela de layout!")
     end
 end)
 
--- 3. FUNÇÃO DO EXECUTOR (Executa da memória se convertido ou do caixa de texto diretamente)
+-- AÇÃO DO BOTÃO "EXECUTAR" (Apenas esconde a janela do Montador)
 BtnExect.MouseButton1Click:Connect(function()
-    local codigoParaRodar = scriptExecucaoPronto or CodeInputBox.Text
-
-    if codigoParaRodar and codigoParaRodar:gsub("%s+", "") ~= "" then
-        local funcaoCompilada, erroDeSintaxe = loadstring(codigoParaRodar)
+    if scriptExecucaoPronto then
+        local funcaoCompilada, erroDeSintaxe = loadstring(scriptExecucaoPronto)
 
         if funcaoCompilada then
-            local sucesso, erroDeExecucao = pcall(funcaoCompilada)
-            if sucesso then
-                print("[EXECUTOR]: Código executado com sucesso!")
-            else
-                warn("[EXECUTOR - ERRO DE EXECUÇÃO]: " .. tostring(erroDeExecucao))
-            end
+            -- 1. Executa o script compilado
+            task.spawn(function()
+                local sucesso, erroDeExecucao = pcall(funcaoCompilada)
+                if sucesso then
+                    print("[EXECUTOR]: Código executado com sucesso!")
+                else
+                    warn("[EXECUTOR - ERRO DE EXECUÇÃO]: " .. tostring(erroDeExecucao))
+                end
+            end)
+
+            -- 2. Recolhe/Esconde apenas a janela do montador (permite reabrir com o botão flutuante)
+            MainFrame.Visible = false
         else
             warn("[EXECUTOR - ERRO DE SINTAXE]: " .. tostring(erroDeSintaxe))
         end
     else
-        warn("[EXECUTOR]: Nenhum script pronto ou texto válido encontrado!")
+        CodeInputBox.TextSize = 10
+        CodeInputBox.TextWrapped = true
+        CodeInputBox.TextXAlignment = Enum.TextXAlignment.Center
+        CodeInputBox.TextYAlignment = Enum.TextYAlignment.Center
+        CodeInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CodeInputBox.Text = "\nNENHUM SCRIPT PRONTO ENCONTRADO!\n\nCole o layout correto e clique em 'Transformar em Execução' primeiro."
     end
 end)
 
