@@ -1,10 +1,13 @@
--- | Project MONTADOR DE SPWN Structures - UI Fiel à Referência |
+-- | Project MONTADOR DE SPWN Structures - UI Fiel à Referência (Com Proteção de Código) |
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local FONTE_PROJETO = Enum.Font.Arcade
+
+-- Variável interna para armazenar o código pronto e protegido
+local scriptExecucaoPronto = nil
 
 -- Função Auxiliar para Criação de Elementos
 local function Create(className, parent, properties, cornerRadius, strokeProps)
@@ -247,9 +250,14 @@ Create("ImageLabel", BoxClear, {
 
 BtnClear.MouseButton1Click:Connect(function()
     CodeInputBox.Text = ""
+    CodeInputBox.TextSize = 11
+    CodeInputBox.TextXAlignment = Enum.TextXAlignment.Left
+    CodeInputBox.TextYAlignment = Enum.TextYAlignment.Top
+    CodeInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    scriptExecucaoPronto = nil
 end)
 
--- 3. BOTÃO: Executar (LÓGICA DE EXECUTOR ADICIONADA)
+-- 3. BOTÃO: Executar (LÓGICA DE EXECUTOR)
 local BoxExect = Create("Frame", ButtonContainer, {
     Name = "BoxExect",
     Size = UDim2.new(0.27, -4, 0, 40),
@@ -278,13 +286,629 @@ Create("ImageLabel", BoxExect, {
     ZIndex = 3
 })
 
--- FUNÇÃO DO EXECUTOR (Loadstring + Proteção pcall)
-BtnExect.MouseButton1Click:Connect(function()
-    local codigo = CodeInputBox.Text
+--------------------------------------------------------------------------------
+-- LÓGICA DE CONVERSÃO LINHA POR LINHA (TRANSFORMAR EM EXECUÇÃO)
+--------------------------------------------------------------------------------
+local function GerarScriptExecucaoCompleto(layoutText)
+    local templateScript = [=[
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local FONTE_PROJETO = Enum.Font.Arcade
+local ID_POSITIVO = "rbxassetid://79925622669536"
+
+--------------------------------------------------------------------------------
+-- LAYOUT COMPLETO
+--------------------------------------------------------------------------------
+%s
+
+--------------------------------------------------------------------------------
+-- VARIÁVEIS DE CONTROLE
+--------------------------------------------------------------------------------
+local roboAtivo = false
+local seguiAtivo = false
+local loopThread = nil
+local baseMontagemCF = nil
+
+-- Rotações independentes em 3 Eixos
+local rotX = 0
+local rotY = 0
+local rotZ = 0
+
+local SEND_INTERVAL = 1 / 60 -- Aumentado para 60Hz para maior fluidez
+local lastSend = 0
+local TEMPO_SPAWN_PROP = 0.30
+
+local currentSmoothCF = nil -- CFrame interpolado para movimento suave
+
+--------------------------------------------------------------------------------
+-- FUNÇÕES AUXILIARES E SISTEMA DE PINTURA MULTI-REMOTE
+--------------------------------------------------------------------------------
+local function getOrganizedProps()
+    local rawProps = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("RemoteFunction") and obj.Name == "SetCurrentCFrame" then
+            if obj.Parent and obj.Parent.Name:find(LocalPlayer.Name, 1, true) then
+                table.insert(rawProps, obj)
+            end
+        end
+    end
+    table.sort(rawProps, function(a, b)
+        return a.Parent:GetDebugId() < b.Parent:GetDebugId()
+    end)
+    return rawProps
+end
+
+local function stopRobot()
+    roboAtivo = false
+    seguiAtivo = false
+    baseMontagemCF = nil
+    currentSmoothCF = nil
+    if loopThread then
+        loopThread:Disconnect()
+        loopThread = nil
+    end
+end
+
+local function SetActivePropType(propName, category)
+    category = category or "Building"
     
-    if codigo and codigo:gsub("%s+", "") ~= "" then
-        local funcaoCompilada, erroDeSintaxe = loadstring(codigo)
+    local remotesFolder = ReplicatedStorage:WaitForChild("Remotes", 5)
+    local reFolder = ReplicatedStorage:WaitForChild("RE", 5)
+
+    if remotesFolder and remotesFolder:FindFirstChild("TelemetryClientInteraction") then
+        pcall(function()
+            remotesFolder.TelemetryClientInteraction:FireServer("filterClick", {["name"] = category, ["itemType"] = "Props"})
+            task.wait(0.02)
+            remotesFolder.TelemetryClientInteraction:FireServer("filterClick", {["name"] = propName, ["itemType"] = "Props"})
+        end)
+    end
+
+    if reFolder and reFolder:FindFirstChild("1Clea1rTool1s") then
+        pcall(function()
+            reFolder["1Clea1rTool1s"]:FireServer("RequestingPropName", propName, category)
+        end)
+    end
+
+    task.wait(0.03)
+end
+
+local function EnsurePropMakerTool()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local backpack = LocalPlayer:WaitForChild("Backpack")
+    
+    local tool = character:FindFirstChild("PropMaker") or backpack:FindFirstChild("PropMaker")
+    if not tool then
+        pcall(function()
+            ReplicatedStorage:WaitForChild("RE"):WaitForChild("1Too1l"):InvokeServer("PickingTools", "PropMaker")
+        end)
+        task.wait(0.15)
+        tool = character:FindFirstChild("PropMaker") or backpack:FindFirstChild("PropMaker")
+    end
+
+    if tool and tool.Parent ~= character then
+        tool.Parent = character
+        task.wait(0.1)
+    end
+
+    return tool and tool:WaitForChild("Tool_PropMake", 4)
+end
+
+local function AplicarCorProp(propModel, color3Value)
+    if not propModel then return end
+    
+    local colorString = string.format("%%f, %%f, %%f", color3Value.R, color3Value.G, color3Value.B)
+    local reFolder = ReplicatedStorage:FindFirstChild("RE")
+
+    local changeColorRF = propModel:FindFirstChild("ChangePropColor") or propModel:FindFirstChild("SetPropColor")
+    if changeColorRF and changeColorRF:IsA("RemoteFunction") then
+        pcall(function() changeColorRF:InvokeServer(colorString) end)
+        pcall(function() changeColorRF:InvokeServer(color3Value) end)
+    end
+
+    if reFolder then
+        local editRemote = reFolder:FindFirstChild("PickerEditProp") or reFolder:FindFirstChild("1Edit1Prop")
+        if editRemote then
+            if editRemote:IsA("RemoteFunction") then
+                pcall(function() editRemote:InvokeServer(propModel, "Color", color3Value) end)
+                pcall(function() editRemote:InvokeServer(propModel, "Color", colorString) end)
+            elseif editRemote:IsA("RemoteEvent") then
+                pcall(function() editRemote:FireServer(propModel, "Color", color3Value) end)
+                pcall(function() editRemote:FireServer(propModel, "Color", colorString) end)
+            end
+        end
+    end
+end
+
+local function Create(className, parent, properties, corner, stroke)
+    local obj = Instance.new(className)
+    for k, v in pairs(properties) do obj[k] = v end
+    if corner then Instance.new("UICorner", obj).CornerRadius = UDim.new(0, corner) end
+    if stroke then
+        local str = Instance.new("UIStroke", obj)
+        for k, v in pairs(stroke) do str[k] = v end
+    end
+    if parent then obj.Parent = parent end 
+    return obj
+end
+
+--------------------------------------------------------------------------------
+-- INTERFACE GRÁFICA
+--------------------------------------------------------------------------------
+local ScreenGui = Create("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"), { Name = "PropSpawner_CustomUI", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+
+local MainFrame = Create("Frame", ScreenGui, {
+    Name = "MainFrame",
+    Size = UDim2.new(0, 260, 0, 42),
+    Position = UDim2.new(0.5, -130, 0.3, 0),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+    Active = true
+}, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+local HeaderFrame = Create("Frame", MainFrame, {
+    Name = "HeaderFrame",
+    Size = UDim2.new(1, 0, 0, 42),
+    Position = UDim2.new(0, 0, 0, 0),
+    BackgroundTransparency = 1,
+    Active = true
+})
+
+Create("ImageLabel", HeaderFrame, {
+    Size = UDim2.new(0, 26, 0, 26),
+    Position = UDim2.new(0, 8, 0, 8),
+    BackgroundTransparency = 1,
+    Image = "rbxassetid://107617915493772",
+    ImageColor3 = Color3.fromRGB(255, 255, 255)
+})
+
+Create("TextLabel", HeaderFrame, {
+    Size = UDim2.new(1, -80, 0, 16),
+    Position = UDim2.new(0, 40, 0, 5),
+    BackgroundTransparency = 1,
+    Text = "My Infrastructure |",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = FONTE_PROJETO,
+    TextSize = 13,
+    TextXAlignment = Enum.TextXAlignment.Center
+})
+
+Create("TextLabel", HeaderFrame, {
+    Size = UDim2.new(1, -80, 0, 16),
+    Position = UDim2.new(0, 40, 0, 20),
+    BackgroundTransparency = 1,
+    Text = "SPAWN",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = FONTE_PROJETO,
+    TextSize = 13,
+    TextXAlignment = Enum.TextXAlignment.Center
+})
+
+local CloseContainer = Create("Frame", HeaderFrame, {
+    Size = UDim2.new(0, 28, 0, 28),
+    Position = UDim2.new(1, -34, 0, 7),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    ZIndex = 5
+}, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+local CloseButton = Create("TextButton", CloseContainer, {
+    Name = "CloseButton",
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "X",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = FONTE_PROJETO,
+    TextSize = 16,
+    ZIndex = 6
+})
+
+CloseButton.MouseButton1Click:Connect(function() 
+    stopRobot()
+    ScreenGui:Destroy() 
+end)
+
+local ContentFrame = Create("Frame", MainFrame, {
+    Name = "ContentFrame",
+    Size = UDim2.new(1, -16, 0, 230),
+    Position = UDim2.new(0, 8, 0, 48),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+}, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+local function CriarLinhaOpcao(parent, posY, textoBotao)
+    local frameContainer = Create("Frame", parent, {
+        Size = UDim2.new(1, -12, 0, 30),
+        Position = UDim2.new(0, 6, 0, posY),
+        BackgroundTransparency = 1
+    })
+
+    local btnTexto = Create("TextButton", frameContainer, {
+        Size = UDim2.new(1, -34, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Text = textoBotao,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO,
+        TextSize = 11,
+        ZIndex = 4
+    }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+    local btnPositivoPuro = Create("ImageButton", frameContainer, {
+        Size = UDim2.new(0, 30, 0, 30),
+        Position = UDim2.new(1, -30, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Image = ID_POSITIVO,
+        ImageTransparency = 0.75,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 4
+    }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+    local function setConcluido(concluido)
+        btnPositivoPuro.ImageTransparency = concluido and 0 or 0.75
+    end
+
+    return btnTexto, btnPositivoPuro, setConcluido
+end
+
+local BtnInvokeProps, BtnPositivoInvoke, SetInvokeConcluido = CriarLinhaOpcao(ContentFrame, 6, "INVOKE PROPS")
+local BtnConstruir, BtnPositivoConstruir, SetConstruirConcluido = CriarLinhaOpcao(ContentFrame, 40, "Construir Structure")
+local BtnGiveLight, BtnPositivoLight, SetGiveLightConcluido = CriarLinhaOpcao(ContentFrame, 74, "Give Light (off)")
+
+--------------------------------------------------------------------------------
+-- CONTROLES DE ROTAÇÃO COMPACTOS
+--------------------------------------------------------------------------------
+local function CriarLinhaRotacao(parent, posY, labelLeft, labelRight, callbackLeft, callbackRight, getDisplayText)
+    local frame = Create("Frame", parent, {
+        Size = UDim2.new(1, -12, 0, 26),
+        Position = UDim2.new(0, 6, 0, posY),
+        BackgroundTransparency = 1
+    })
+
+    local btnL = Create("TextButton", frame, {
+        Size = UDim2.new(0, 38, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Text = labelLeft,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO,
+        TextSize = 9,
+        ZIndex = 4
+    }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+    local btnDisplay = Create("TextButton", frame, {
+        Size = UDim2.new(1, -84, 1, 0),
+        Position = UDim2.new(0, 42, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Text = getDisplayText(),
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO,
+        TextSize = 10,
+        ZIndex = 4
+    }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+    local btnR = Create("TextButton", frame, {
+        Size = UDim2.new(0, 38, 1, 0),
+        Position = UDim2.new(1, -38, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        Text = labelRight,
+        TextColor3 = Color3.fromRGB(255, 255, 255),
+        Font = FONTE_PROJETO,
+        TextSize = 9,
+        ZIndex = 4
+    }, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+    btnL.MouseButton1Click:Connect(function() callbackLeft() btnDisplay.Text = getDisplayText() end)
+    btnR.MouseButton1Click:Connect(function() callbackRight() btnDisplay.Text = getDisplayText() end)
+
+    return btnDisplay
+end
+
+local DispY = CriarLinhaRotacao(ContentFrame, 110, "< L", "R >",
+    function() rotY = (rotY - 45) %% 360 end,
+    function() rotY = (rotY + 45) %% 360 end,
+    function() return string.format("L/R (Y): %%d°", rotY) end
+)
+
+local DispX = CriarLinhaRotacao(ContentFrame, 140, "UP", "DN",
+    function() rotX = (rotX + 45) %% 360 end,
+    function() rotX = (rotX - 45) %% 360 end,
+    function() return string.format("U/D (X): %%d°", rotX) end
+)
+
+local DispZ = CriarLinhaRotacao(ContentFrame, 170, "RL L", "RL R",
+    function() rotZ = (rotZ - 45) %% 360 end,
+    function() rotZ = (rotZ + 45) %% 360 end,
+    function() return string.format("ROLL (Z): %%d°", rotZ) end
+)
+
+local BtnResetRot = Create("TextButton", ContentFrame, {
+    Size = UDim2.new(1, -12, 0, 20),
+    Position = UDim2.new(0, 6, 0, 202),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    Text = "RESET ROTATION",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = FONTE_PROJETO,
+    TextSize = 9,
+    ZIndex = 4
+}, 0, { Color = Color3.fromRGB(255, 255, 255), Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+
+BtnResetRot.MouseButton1Click:Connect(function()
+    rotX, rotY, rotZ = 0, 0, 0
+    DispX.Text = "U/D (X): 0°"
+    DispY.Text = "L/R (Y): 0°"
+    DispZ.Text = "ROLL (Z): 0°"
+end)
+
+--------------------------------------------------------------------------------
+-- DRAG & DROPDOWN UI
+--------------------------------------------------------------------------------
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+local moved = false
+local abaAberta = false
+local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+HeaderFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        moved = false
+        dragStart = input.Position
+        startPos = MainFrame.Position
+
+        local connection
+        connection = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+                if connection then connection:Disconnect() end
+
+                if not moved then
+                    abaAberta = not abaAberta
+                    local targetSize = abaAberta and UDim2.new(0, 260, 0, 286) or UDim2.new(0, 260, 0, 42)
+                    TweenService:Create(MainFrame, tweenInfo, { Size = targetSize }):Play()
+                end
+            end
+        end)
+    end
+end)
+
+HeaderFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+            moved = true
+        end
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE INVOCAÇÃO
+--------------------------------------------------------------------------------
+local function ExecutarInvokeProps()
+    task.spawn(function()
+        BtnInvokeProps.Text = "EQUIPANDO..."
+        SetInvokeConcluido(false)
+
+        local target_base = workspace:FindFirstChild("Baseplate") or workspace.Terrain
+        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local toolPropMake = EnsurePropMakerTool()
+        if not toolPropMake then
+            BtnInvokeProps.Text = "ERRO: TOOL NAO ENCONTRADA"
+            task.wait(1.5)
+            BtnInvokeProps.Text = "INVOKE PROPS"
+            return
+        end
+
+        local totalProps = #EstrelaLayout
+        local centerPos = hrp.Position + Vector3.new(0, -2, 0)
+        local radius = 20
+
+        for index = 1, totalProps do
+            local propConfig = EstrelaLayout[index]
+            BtnInvokeProps.Text = string.format("INVOCANDO %%d/%%d...", index, totalProps)
+
+            SetActivePropType(propConfig.PropId, propConfig.Categoria)
+            toolPropMake = EnsurePropMakerTool()
+
+            local angle = (index / totalProps) * (math.pi * 2)
+            local offset = Vector3.new(math.sin(angle) * radius, 0, math.cos(angle) * radius)
+            local spawnPoint = centerPos + offset
+
+            if toolPropMake then
+                pcall(function() 
+                    toolPropMake:FireServer(target_base, spawnPoint) 
+                end)
+            end
+
+            local propRemotes = {}
+            local timeout = 0
+            repeat
+                task.wait(0.03)
+                timeout = timeout + 0.03
+                propRemotes = getOrganizedProps()
+            until #propRemotes >= index or timeout >= 0.6
+
+            if propRemotes[index] and propRemotes[index].Parent then
+                local propModel = propRemotes[index].Parent
+                if propConfig.Color then
+                    AplicarCorProp(propModel, propConfig.Color)
+                end
+            end
+
+            task.wait(TEMPO_SPAWN_PROP - 0.03)
+        end
+
+        BtnInvokeProps.Text = "INVOKE PROPS"
+        SetInvokeConcluido(true)
+    end)
+end
+
+BtnInvokeProps.MouseButton1Click:Connect(ExecutarInvokeProps)
+BtnPositivoInvoke.MouseButton1Click:Connect(ExecutarInvokeProps)
+
+--------------------------------------------------------------------------------
+-- MONTAGEM DA ESTRUTURA E MOVIMENTAÇÃO SUAVE (ASSÍNCRONA)
+--------------------------------------------------------------------------------
+local function ExecutarConstrucao()
+    if roboAtivo then
+        stopRobot()
+        BtnConstruir.Text = "Construir Structure"
+        SetConstruirConcluido(false)
+        BtnGiveLight.Text = "Give Light (off)"
+        SetGiveLightConcluido(false)
+        return
+    end
+
+    task.spawn(function()
+        stopRobot()
+        BtnConstruir.Text = "MAPEANDO..."
         
+        local propRemotes = getOrganizedProps()
+        local totalInvocados = #propRemotes
+
+        if totalInvocados == 0 then
+            BtnConstruir.Text = "NENHUM PROP DETECTADO"
+            task.wait(1.5)
+            BtnConstruir.Text = "Construir Structure"
+            return
+        end
+
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        baseMontagemCF = hrp.CFrame
+        currentSmoothCF = baseMontagemCF
+        roboAtivo = true
+        seguiAtivo = false
+        lastSend = 0
+
+        -- Utiliza PostSimulation acoplado com interpolação suave
+        loopThread = RunService.PostSimulation:Connect(function(deltaTime)
+            if not roboAtivo then
+                if loopThread then loopThread:Disconnect() end
+                return
+            end
+
+            local currentTime = os.clock()
+            if currentTime - lastSend < SEND_INTERVAL then return end
+            lastSend = currentTime
+
+            local currentHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local targetBaseCF = seguiAtivo and currentHRP and currentHRP.CFrame or baseMontagemCF
+
+            if targetBaseCF then
+                -- Interpolação (Lerp) para movimentos mais suaves ao andar
+                if not currentSmoothCF then currentSmoothCF = targetBaseCF end
+                currentSmoothCF = currentSmoothCF:Lerp(targetBaseCF, math.clamp(deltaTime * 25, 0.15, 1))
+
+                local rot3D = CFrame.Angles(math.rad(rotX), math.rad(rotY), math.rad(rotZ))
+
+                -- Atualização assíncrona com task.spawn de todas as peças
+                for i = 1, totalInvocados do
+                    local remote = propRemotes[i]
+                    local config = EstrelaLayout[i]
+
+                    if remote and config then
+                        local finalCF = currentSmoothCF * rot3D * config.CFrameToPlayer
+
+                        task.spawn(function()
+                            pcall(function() remote:InvokeServer(finalCF) end)
+                        end)
+                    end
+                end
+            end
+        end)
+
+        BtnConstruir.Text = "Construir Structure"
+        SetConstruirConcluido(true)
+    end)
+end
+
+BtnConstruir.MouseButton1Click:Connect(ExecutarConstrucao)
+BtnPositivoConstruir.MouseButton1Click:Connect(ExecutarConstrucao)
+
+--------------------------------------------------------------------------------
+-- TOGGLE SEGUIMENTO
+--------------------------------------------------------------------------------
+local function AlternarLuz()
+    if not roboAtivo then return end
+
+    seguiAtivo = not seguiAtivo
+
+    if seguiAtivo then
+        BtnGiveLight.Text = "Give Light (on)"
+        SetGiveLightConcluido(true)
+    else
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            baseMontagemCF = hrp.CFrame
+            currentSmoothCF = baseMontagemCF
+        end
+
+        BtnGiveLight.Text = "Give Light (off)"
+        SetGiveLightConcluido(false)
+    end
+end
+
+BtnGiveLight.MouseButton1Click:Connect(AlternarLuz)
+BtnPositivoLight.MouseButton1Click:Connect(AlternarLuz)
+]=]
+
+    return string.format(templateScript, layoutText)
+end
+
+BtnTransform.MouseButton1Click:Connect(function()
+    local layoutDigitado = CodeInputBox.Text
+
+    if layoutDigitado and layoutDigitado:gsub("%s+", "") ~= "" then
+        -- Garante a estrutura completa de EstrelaLayout
+        if not layoutDigitado:find("EstrelaLayout") then
+            layoutDigitado = "local EstrelaLayout = {\n" .. layoutDigitado .. "\n}"
+        end
+
+        -- Armazena o código montado na memória interna e esconde da interface
+        scriptExecucaoPronto = GerarScriptExecucaoCompleto(layoutDigitado)
+        
+        -- Formatação visual do texto de confirmação
+        CodeInputBox.TextSize = 14
+        CodeInputBox.TextXAlignment = Enum.TextXAlignment.Center
+        CodeInputBox.TextYAlignment = Enum.TextYAlignment.Center
+        CodeInputBox.TextColor3 = Color3.fromRGB(0, 255, 127)
+        CodeInputBox.Text = "\n\nPROCESSO CONCLUÍDO COM SUCESSO!\n\nO Script de execução foi compilado e armazenado com segurança.\n\nClique no botão 'Executar' para iniciar."
+
+        print("[MONTADOR]: Script compilado e protegido com sucesso!")
+    else
+        warn("[MONTADOR]: Cole primeiro a tabela do layout no painel!")
+    end
+end)
+
+-- 3. FUNÇÃO DO EXECUTOR (Executa da memória se convertido ou do caixa de texto diretamente)
+BtnExect.MouseButton1Click:Connect(function()
+    local codigoParaRodar = scriptExecucaoPronto or CodeInputBox.Text
+
+    if codigoParaRodar and codigoParaRodar:gsub("%s+", "") ~= "" then
+        local funcaoCompilada, erroDeSintaxe = loadstring(codigoParaRodar)
+
         if funcaoCompilada then
             local sucesso, erroDeExecucao = pcall(funcaoCompilada)
             if sucesso then
@@ -296,7 +920,7 @@ BtnExect.MouseButton1Click:Connect(function()
             warn("[EXECUTOR - ERRO DE SINTAXE]: " .. tostring(erroDeSintaxe))
         end
     else
-        warn("[EXECUTOR]: O painel de texto está vazio!")
+        warn("[EXECUTOR]: Nenhum script pronto ou texto válido encontrado!")
     end
 end)
 
