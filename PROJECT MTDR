@@ -74,6 +74,22 @@ local ScreenGui = Create("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"), {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 })
 
+-- [FIX UISCALE] Aumenta a UI no PC (1.9x) e mantém padrão no mobile (1.0x)
+local UiScale = Instance.new("UIScale", ScreenGui)
+UiScale.Name = "SPWN_UIScale"
+
+local function UpdateUIScale()
+    if not UserInputService.TouchEnabled then
+        UiScale.Scale = 1.9 -- 90% maior no PC
+    else
+        UiScale.Scale = 1.0 -- Tamanho padrão no mobile
+    end
+end
+
+UpdateUIScale()
+UserInputService.LastInputTypeChanged:Connect(UpdateUIScale)
+-- [FIX UISCALE fim]
+
 -- Botão Flutuante Externo
 local ToggleButton = Create("ImageButton", ScreenGui, {
     Name = "ToggleButton",
